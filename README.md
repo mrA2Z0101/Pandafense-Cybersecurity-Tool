@@ -1,5 +1,3 @@
-# Pandafense-Cybersecurity-Tool
-Cybersecurity Defense tool that uses the ESP32 Microcontroller
 ![Add a heading](https://github.com/user-attachments/assets/b9cf820b-354a-4c15-83ea-c732a261be5f)
 
 # Pandafense
