@@ -1,336 +1,303 @@
 ![Add a heading](https://github.com/user-attachments/assets/b9cf820b-354a-4c15-83ea-c732a261be5f)
 
-# Pandafense
+# PandaFense
 
-*A pocket defender that scans Wi‑Fi now. Bluetooth and RF next. When danger shows up, a panda frowns.*
+**ESP32 Wi‑Fi + BLE Threat Detectors · RF Tools (CC1101) · OLED UI · WebUI · Honeypots**
 
-![demo-gif](docs/demo.gif)
+PandaFense is a handheld network defense toy and teaching tool. It scans Wi‑Fi and BLE for noisy or suspicious behavior. It adds Sub‑GHz RF tools with a CC1101. It serves a simple WebUI for control and live alerts. It also ships with small deception modules (honeypots) to study hostile behavior.
 
-> **Status:** Prototype. Wi‑Fi detectors are working. A first **BLE Jam Detector** is included. Other BLE and sub‑GHz modules will follow.
-
----
-
-## ⚠️ Warning — Legal & Ethical Use Only
-
-This project is for **education, research, and defensive security**. By using it, you agree to:
-
-* **Only scan/test networks and devices you own** or have **explicit written permission** to assess.
-* **Never disrupt wireless service.** Do **not** transmit deauthentication, beacon‑flood, or jamming signals. Those are illegal in many jurisdictions.
-* Follow local **radio regulations** (e.g., FCC/ETSI) and applicable laws.
-* Use shielded labs or controlled environments for demonstrations, with informed consent from all parties.
-
-> **This repository ships only detection code.** There is **no attack/transmit functionality** provided. The maintainers are **not responsible** for misuse. If you believe any content violates GitHub’s Acceptable Use Policies, please open an issue so it can be addressed.
+> ⚠️ Use only on networks and spectrum you own or have permission to test. Local laws vary.
 
 ---
 
-## ✨ Features (today)
+## Highlights
 
-* **Wi‑Fi Deauth detector** – flags 802.11 deauthentication frames.
-* **Wi‑Fi Rogue AP detector** – tracks SSIDs across channels and alerts on suspicious multi‑channel clones.
-* **Wi‑Fi ARP spoof detector** – notices multiple MACs claiming the same IP (best on open networks).
-* **Wi‑Fi Beacon‑flood detector** – detects abnormal beacon spikes per SSID.
-* **BLE Jam detector (prototype)** – watches BLE ADV rates and alerts on sustained drops consistent with jamming.
-* **On‑device UI** – a panda on an OLED. Scanning = looking around. Alert = sad face + LEDs + buzzer.
+* **One‑button UI** on a 128×64 I²C OLED
 
-> **Single‑button UX.** Short press = next. Long press (\~1.5 s) = select. Long press while active = stop and go back.
-
----
-
-## 🧩 Why
-
-Hands‑on defense training. See what common attacks look like over the air. Demo in a lab you control. Teach without walls of text.
-
----
-
-## 📦 Hardware (this build)
-
-| Part                          | Notes                                   |
-| ----------------------------- | --------------------------------------- |
-| **ESP32** dev board           | Wi‑Fi promiscuous mode. BLE via NimBLE. |
-| **OLED SSD1306 128×64 (I²C)** | UI and panda animation.                 |
-| **LED (RED)**                 | Alarm indicator. **GPIO 2**.            |
-| **LED (GREEN)**               | Heartbeat/OK. **GPIO 13**.              |
-| **Piezo buzzer**              | Audible alert. **GPIO 18**.             |
-| **Momentary button**          | Input. **GPIO 14** (INPUT\_PULLUP).     |
-
-**Power & wiring**
-
-* OLED on **3V3**, GND, **SDA/SCL** per your board. Default I²C address **0x3C**.
-* Button to **GND**. Uses internal pull‑up.
-
-### 🔌 Wiring diagram
-
-**Typical ESP32 DevKit (I²C pins 21/22)**
-
-```
-ESP32 (DevKit)           SSD1306 128x64 (I²C)
------------------------  ---------------------
-3V3                      VCC
-GND                      GND
-GPIO21 (SDA)             SDA
-GPIO22 (SCL)             SCL
-
-ESP32                    Other parts
------------------------  ---------------------
-GPIO14                   Button → GND  (INPUT_PULLUP)
-GPIO2                    Red LED anode → 220Ω → pin ; cathode → GND
-GPIO13                   Green LED anode → 220Ω → pin ; cathode → GND
-GPIO18                   Buzzer + → pin ; Buzzer − → GND
-```
-
-> Some ESP32 boards map I²C to different pins. If needed, call `Wire.begin(SDA, SCL)` with your pins, or rewire to the board’s labeled SDA/SCL.
-
-![wiring-diagram](hardware/wiring-diagrams/pandafense_esp32_ssd1306_i2c.png)
-
----
-
-## 🗂️ Repo structure
-
-```
-Pandafense/
-├─ firmware/
-│  ├─ arduino/
-│  └─ platformio/
-├─ hardware/
-│  ├─ wiring-diagrams/
-│  └─ enclosure/
-├─ docs/
-│  ├─ demo.gif
-│  └─ screenshots/
-└─ LICENSE
-```
-
----
-
-## 🧰 Dependencies
-
-* **ESP32 Arduino Core**
-* **Adafruit\_GFX** and **Adafruit\_SSD1306**
-* **NimBLE‑Arduino** (by h2zero)
-
-> Some NimBLE versions change callback signatures. This project uses `NimBLEScanCallbacks` and `setScanCallbacks(&cb, /*wantDuplicates=*/true)`.
-
----
-
-## 🚀 Quick start
-
-### Arduino IDE
-
-1. Install ESP32 board support.
-2. Install the libraries above.
-3. Open `firmware/arduino` and build/flash.
-
-### PlatformIO
-
-1. Open `firmware/platformio` in VS Code.
-2. `pio run -t upload`.
-
-If the OLED stays blank, scan I²C and confirm **0x3C**. Adjust in the config if needed.
-
-### 🛠️ Minimal PlatformIO config
-
-Create `firmware/platformio/platformio.ini`:
-
-```ini
-[env:esp32dev]
-platform = espressif32
-board = esp32dev
-framework = arduino
-monitor_speed = 115200
-upload_speed = 921600
-
-lib_deps =
-  adafruit/Adafruit GFX Library
-  adafruit/Adafruit SSD1306
-  h2zero/NimBLE-Arduino
-
-build_flags =
-  -D OLED_ADDR=0x3C
-  -D CORE_DEBUG_LEVEL=0
-```
-
-Project layout expected by PlatformIO:
-
-```
-firmware/platformio/
-├─ platformio.ini
-└─ src/
-   └─ main.cpp   ← paste your sketch here (convert .ino to .cpp if needed)
-```
-
----
-
-## 🕹️ Using the device
-
-**Main menu**
-
-* **Wi‑Fi Defense**
+  * Short press: move cursor
+  * Long press: select / back
+* **Wi‑Fi Defense** (14 single‑mode detectors): Deauth, Rogue AP, ARP spoof, Beacon flood, Disassoc, Probe flood, RTS/CTS flood, EAPOL storm, CSA, Spoofed mgmt, Beacon anomaly, WPS spam, RSN mismatch, Broadcast data
 * **Bluetooth Defense**
 
-**Wi‑Fi submenu**
+  * 10 scan‑only detectors
+  * BLE Jam heuristic detector
+* **RF Tools** (CC1101)
 
-* Deauth Detector
-* Rogue AP Detector
-* ARP Spoof Detector
-* Beacon‑Flood Detector
-* Menu (back)
+  * Band scan, Simple monitor, Waterfall, OOK edge capture, 2‑FSK capture, IDS (jam/flood)
+  * Presets and on‑the‑fly tuning via HTTP
+  * Save captures to SPIFFS and download
+* **Honeypots**
 
-**Bluetooth submenu**
+  * Fake AP + DNS catcher (logs hostnames)
+  * Credential portal (captures username+password, masks in WS alerts)
+  * Telnet/SSH banner + credential logger
+  * BLE Beacon honeypot (advertises a service and logs connects)
+* **WebUI** (HTTP + WebSocket)
 
-* BLE Scan Detector (placeholder)
-* BLE Spoof Detector (placeholder)
-* BLE Flood Detector (placeholder)
-* **BLE Jam Detector** (implemented)
-* Menu (back)
+  * Live status and alert stream
+  * Start/stop detectors over HTTP
+  * RF configuration endpoints
+  * mDNS: `http://pandafense.local` (when mDNS active)
+* **Dashboard gating**
 
-**Controls**
+  * AP + Web server start only after you pick **Dashboard → Yes** on device
+* **Settings**
 
-* Short press cycles the cursor.
-* Long press selects. Long press in a sub‑menu returns to the main menu.
-* While active, long press stops scanning and returns home.
+  * Sound On/Off
+  * Overlay On/Off (hide panda, show text alerts)
+* **Persistence**
 
-**Indicators**
-
-* **Green LED ON** when idle/OK. **Red LED + buzzer** when any alert is active.
-* Screen shows the panda. Happy when scanning. Sad when an alert triggers.
-
----
-
-## 🔎 Detection details (matches source code)
-
-### Deauth
-
-* Listens for 802.11 management frames with subtype **Deauthentication**.
-* Any hit sets `deauthDetected` and raises an alert for `ALERT_DURATION`.
-
-### Rogue AP
-
-* Tracks **SSIDs** and the **set of channels** they appear on (`channelsSeen` bitmask).
-* When a known SSID shows up on **new channels** repeatedly within **NEW\_CHANNEL\_WINDOW**, increments a counter.
-* If the counter reaches **NEW\_CHANNEL\_THRESHOLD (3)** and the BSSID OUI is **not in the whitelist**, it alerts.
-* Persistence: SSIDs and channel bitmasks are saved in ESP32 **Preferences** under the `apstore` namespace.
-
-### ARP spoof
-
-* Parses data frames for **LLC/SNAP** type **0x0806** (ARP). Looks for **ARP replies** (op=2).
-* Maps `IP → {MACs...}` and alerts when **multiple MACs** claim the same IP.
-* Works best on **open/unencrypted** networks. Encrypted payloads will hide ARP without association.
-
-### Beacon flood
-
-* Counts beacons per **SSID** within a sliding window. Triggers when counts exceed **BEACON\_THRESHOLD (100)** in **BEACON\_WINDOW\_MS (1000 ms)**.
-
-### BLE jam (prototype)
-
-* Uses NimBLE continuous active scan. Measures **advertisements per second (pps)** in **WINDOW\_MS (3000 ms)** windows.
-* Builds a baseline after **WARMUP\_MS (15000 ms)** and **MIN\_BASELINE\_COUNT (60)** frames.
-* Alerts when **pps < LOW\_RATIO × baseline** for **LOW\_WINDOWS\_TO\_ALERT (3)** windows.
+  * Stores AP sketches and UI prefs in NVS (Preferences)
 
 ---
 
-## ⚙️ Configuration constants
+## Hardware
 
-```cpp
-// Button and debounce
-const unsigned long DEBOUNCE_DELAY  = 50;      // ms
-const unsigned long LONG_PRESS_TIME = 1500;    // ms
+* **MCU:** ESP32 Dev‑Kit (Arduino core v3.x)
+* **Display:** 0.96" SSD1306 I²C OLED, 128×64, addr `0x3C`
+* **RF:** CC1101 SPI transceiver
+* **Inputs/Outputs:** one button, red/green LED, buzzer
 
-// Wi‑Fi scanning
-static const unsigned long CHANNEL_HOP_INTERVAL = 200;   // ms, cycles 1–13
-static const unsigned long ALERT_DURATION       = CHANNEL_HOP_INTERVAL * 13 + 500; // visual/audio alert hold
-static const unsigned long ROGUE_TIMEOUT        = 500;   // ms
-static const unsigned long ARP_TIMEOUT          = 500;   // ms
-static const unsigned long BEACON_WINDOW_MS     = 1000;  // ms
-static const int           BEACON_THRESHOLD     = 100;   // per SSID per window
-static const unsigned long NEW_CHANNEL_WINDOW   = 60000; // ms
-static const int           NEW_CHANNEL_THRESHOLD= 3;     // hits before rogue
+### Pin Map (ESP32)
 
-// OUI whitelist for allowed AP vendors
-#define NUM_WHITELIST_OUIS 1
-const uint8_t whitelistOUI[NUM_WHITELIST_OUIS][3] = { {0xAA,0xBB,0xCC} };
+| Function         | Pin                 |
+| ---------------- | ------------------- |
+| Button           | GPIO 14             |
+| Red LED          | GPIO 2              |
+| Green LED        | GPIO 26             |
+| Buzzer           | GPIO 18             |
+| **OLED I²C SDA** | GPIO 21 *(default)* |
+| **OLED I²C SCL** | GPIO 22 *(default)* |
+| **CC1101 CS**    | GPIO 5              |
+| **CC1101 GDO0**  | GPIO 4              |
+| **CC1101 SCK**   | GPIO 25             |
+| **CC1101 MISO**  | GPIO 27             |
+| **CC1101 MOSI**  | GPIO 33             |
 
-// OLED
-#define OLED_ADDR 0x3C
+> If your board uses different I²C pins, pass them to `Wire.begin(SDA,SCL)`.
+
+<img width="1930" height="1200" alt="All the Parts" src="https://github.com/user-attachments/assets/3db95738-be51-4590-9e24-5e7f48c6513d" />
+
+<img width="1930" height="1200" alt="ESP32 and OLED Screen" src="https://github.com/user-attachments/assets/370b0d7b-c64f-429c-b96f-fbbf879cc642" />
+
+<img width="1930" height="1200" alt="ESP32 and CC1101 Module" src="https://github.com/user-attachments/assets/ec19649c-cdbc-42d1-bbd7-be0d3005afcf" />
+
+<img width="1930" height="1200" alt="ESP32, tactile button, LED Diodes and Buzzer" src="https://github.com/user-attachments/assets/11806c96-6e13-4d1b-aa58-17fe831ccb72" />
+
+
+---
+
+## Libraries
+
+Install these in Arduino IDE or your build system:
+
+* **Adafruit GFX** and **Adafruit SSD1306**
+* **NimBLE‑Arduino**
+* **ESP Async WebServer** and **AsyncTCP**
+* **ESPmDNS**, **SPIFFS**, **FS**, **DNSServer**, **AsyncUDP** (part of ESP32 core v3.x)
+* **ELECHOUSE\_CC1101\_SRC\_DRV**
+
+---
+
+## Build & Flash
+
+1. **Board Manager:** ESP32 by Espressif (v3.x)
+2. **Partition scheme:** Default (SPIFFS enabled)
+3. **Open code:** `PandaFense_*.ino`
+4. **Adjust config:**
+
+   * Wi‑Fi creds and token:
+
+     ```cpp
+     static const char* WIFI_SSID = "...";
+     static const char* WIFI_PASS = "...";
+     static const char* TOKEN     = "panda_token_123"; // change this
+     ```
+5. **Upload** and open Serial at **115200**.
+
+> If STA connect fails, device falls back to SoftAP `Pandafense-AP` / `pandapass`.
+
+---
+
+## Device UI
+
+**Main menu:** Wi‑Fi · Bluetooth · Dashboard · Settings · RF · Honeypots
+
+* **Dashboard** → prompts: *Use your desktop?* → **Yes** starts AP+Web.
+* **Settings** → Sound On/Off, Overlay On/Off, Menu
+* **RF** → Band Scan, Monitor @Freq, Waterfall, OOK Edge, 2‑FSK, RF IDS, **Presets/Tuning**
+* **Honeypots** → Fake AP, Telnet/SSH, Credential Portal, BLE Beacon, Menu
+
+**Overlay Off** shows text alerts instead of the panda face on the OLED.
+
+---
+
+## WebUI & API
+
+### Access
+
+* **SoftAP:** `Pandafense-AP` / `pandapass` → `http://192.168.4.1/`
+* **mDNS (if active):** `http://pandafense.local/`
+* **Root:** serves `/index.html` from SPIFFS or an embedded minimal page
+* **WebSocket:** `/ws` (status + alerts)
+
+### Endpoints
+
+* `GET  /api/status`
+* `POST /api/cmd?action=set&detector=NAME&state=start|stop`
+* `GET  /rf/status`
+* `POST /rf/set`  *(mhz, bw\_khz, dr\_bps, mod, sync, thresh)*
+* `POST /rf/preset` *(name)*
+* `GET  /rf/files`  *(list captures)*
+* `GET  /rf/download?file=<path>`
+
+> **Auth:** Add header `Authorization: Bearer <TOKEN>` or `?token=...`.
+
+### Detector names (for `/api/cmd`)
+
+**Wi‑Fi:** `DEAUTH, ROGUE_AP, ARP, BEACON, DISASSOC, PROBE, RTSCTS, EAPOL, CSA, SPOOFEDMGMT, BEACON_ANOM, WPS, RSN_MISMATCH, BCAST_DATA`
+
+**BLE:** `BT_ADV_FLOOD, BT_UUID_FLOOD, BT_ADDR_HOP, BT_SERVICE_SPOOF, BT_MFR_STORM, BT_SCANRSP_ABUSE, BT_INTERVAL_ANOM, BT_REPLAY_CLONE, BT_NAME_SQUAT, BT_RSSI_TELEPORT, BT_JAM`
+
+**RF:** `RF_BANDSCAN, RF_MONITOR, RF_WATERFALL, RF_OOK_CAPTURE, RF_2FSK_CAPTURE, RF_IDS`
+
+**Honeypots:** `HP_FAKE_AP, HP_TELNET, HP_CREDENTIAL, HP_BLE_BEACON`
+
+### Examples
+
+Start a detector:
+
+```bash
+curl -X POST http://pandafense.local/api/cmd \
+  -H "Authorization: Bearer <TOKEN>" \
+  -d 'action=set&detector=DEAUTH&state=start'
 ```
 
-Change GPIOs and thresholds as needed, then rebuild.
+Tune RF:
+
+```bash
+curl -X POST http://pandafense.local/rf/set \
+  -H "Authorization: Bearer <TOKEN>" \
+  -d 'mhz=433.92&bw_khz=100&dr_bps=2400&mod=2&sync=1&thresh=-65'
+```
+
+Apply an RF preset:
+
+```bash
+curl -X POST http://pandafense.local/rf/preset \
+  -H "Authorization: Bearer <TOKEN>" \
+  -d 'name=US_433_OOK'
+```
+
+List and fetch captures:
+
+```bash
+curl -H "Authorization: Bearer <TOKEN>" http://pandafense.local/rf/files
+curl -H "Authorization: Bearer <TOKEN>" -O "http://pandafense.local/rf/download?file=/rf/20250101_000000_OOK.bin"
+```
+
+### WebSocket payloads
+
+**Status**
+
+```json
+{
+  "event": "status",
+  "payload": {
+    "deviceId": "panda-01",
+    "wifiReady": true,
+    "apMode": true,
+    "mode": 26,
+    "modeName": "RF_BANDSCAN",
+    "menuLevel": 2,
+    "soundOff": false,
+    "overlayOff": false
+  }
+}
+```
+
+**Alert** (keys vary by detector)
+
+```json
+{
+  "event": "alert",
+  "payload": {
+    "deviceId": "panda-01",
+    "detector": "DEAUTH",
+    "severity": "HIGH|MEDIUM|LOW",
+    "ts": 1234567,
+    "details": { "rssi": -62, "note": "..." }
+  }
+}
+```
 
 ---
 
-## 📈 Tuning and testing
+## RF Presets (built‑in)
 
-* Take a **baseline** in a quiet room. Note beacon and deauth counts.
-* Trigger detections in a **controlled lab** on gear you own.
-* If rogue AP alerts too easily, raise `NEW_CHANNEL_THRESHOLD` or add OUIs you trust.
-* Beacon floods vary by environment. Tweak `BEACON_THRESHOLD` and window length.
-* BLE jam detection is heuristic. Expect false positives in very quiet rooms.
+| Name          | Freq (MHz) | DR (bps) | RX BW (Hz) |   Mod |  Sync | Thresh |
+| ------------- | ---------: | -------: | ---------: | ----: | ----: | -----: |
+| US\_315\_OOK  |     315.00 |     2400 |     100000 |   OOK | 30/32 |    -65 |
+| US\_433\_OOK  |     433.92 |     2400 |     100000 |   OOK | 30/32 |    -65 |
+| EU\_433\_2FSK |     433.92 |    38400 |     203000 | 2‑FSK | 16/16 |    -70 |
+| EU\_868\_2FSK |     868.30 |    50000 |     203000 | 2‑FSK | 16/16 |    -70 |
+| US\_915\_2FSK |     915.00 |   100000 |     270000 | 2‑FSK | 16/16 |    -70 |
+| US\_915\_OOK  |     915.00 |     4800 |     135000 |   OOK | 30/32 |    -65 |
 
----
-
-## 🧱 Limitations
-
-* Focuses on **2.4 GHz** today. Channel hop spans 1–13.
-* ARP spoof detection is limited on **encrypted** WLANs without association.
-* Promiscuous capture can miss frames during heavy bursts.
-* BLE jam logic uses traffic statistics. It does **not** demodulate or measure RF energy directly.
+> Uses ELECHOUSE CC1101 driver. `setSidle()` is used to idle the radio when stopping.
 
 ---
 
-## 🗺️ Roadmap
+## Honeypots (quick notes)
 
-* Implement BLE **Scan/Spoof/Flood** detectors.
-* Add **NRF24L01+** and **CC1101** RF scans.
-* On‑device **config menu**.
-* **SD card** or serial logging.
-* **JSON** telemetry for dashboards.
-* Unit tests for parsers.
+* **Fake AP:** SoftAP + DNS catcher (AsyncUDP). Logs QNAMEs. Minimal HTML served.
+* **Credential portal:** SoftAP with captive page. Logs creds to SPIFFS and Serial. WebSocket alerts mask the username mid‑section.
+* **Telnet/SSH:** TCP servers on 23/22. Logs credentials and simple commands. Emits MEDIUM/HIGH alerts.
+* **BLE Beacon:** NimBLE server advertises a service and characteristic. Logs connects/disconnects and restarts advertising.
 
-Open an issue if you want to help with any item.
+All honeypot HTTP handlers use `hpLogHttp()` which both logs and raises LOW alerts.
 
 ---
 
-## 🧪 Classroom/lab demos
+## Persistence
 
-* **Deauth**: Small burst on a lab AP and client you own. Watch the alert.
-* **Rogue AP**: Clone SSID on another channel. Avoid OUIs on your whitelist.
-* **Beacon flood**: Short beacon spam burst near the device.
-* **ARP spoof**: On an open lab network, run a local ARP poisoner. Observe the conflict.
+* **Preferences (NVS):**
 
-Keep power low. Do not interfere with others. Get written approval in shared spaces.
+  * `apstore`: `apCount`, `ssidN`, `chmN` (per row)
+  * `soundOff`, `overlayOff`
+* **SPIFFS:**
 
----
-
-## 🧰 Troubleshooting
-
-* **No OLED output**: Check 3V3 and GND. Confirm I²C address 0x3C.
-* **Button unresponsive**: Verify wiring to GPIO 14 and pull‑up. Adjust `LONG_PRESS_TIME`.
-* **No Wi‑Fi detections**: Ensure promiscuous mode is enabled. Try a quieter RF space. Confirm channel hopping.
-* **NimBLE compile errors**: Use `NimBLEScanCallbacks` and `onResult(const NimBLEAdvertisedDevice*)`. Some versions omit `onScanEnd`.
+  * `/rf/*.bin` for OOK/2FSK captures
+  * `/honeypot_events.csv` for honeypot logs
 
 ---
 
-## 🤝 Contributing
+## Troubleshooting
 
-PRs and issues welcome. Please describe steps to reproduce, your test setup, and proposed changes. Keep functions small. Document parsing logic.
-
----
-
-## 📄 License
-
-MIT. See `LICENSE`.
+* **401 Unauthorized:** set `TOKEN` in code. Pass `Authorization: Bearer <TOKEN>`.
+* **CORS in browser:** basic `*` CORS is enabled. If you add custom headers, adjust defaults.
+* **OLED blank:** confirm I²C address `0x3C`. Check SDA/SCL pins.
+* **CC1101 idle error:** library uses `setSidle()` (not `setIdle()`). The code already calls `setSidle()` when stopping.
+* **No WebUI:** Start **Dashboard → Yes** to bring up AP + server.
 
 ---
 
-## 🙏 Credits
+## Roadmap
 
-Thanks to the Arduino, ESP32, and NimBLE communities. And to security educators who model safe, legal testing.
+* SD card logging for long RF captures
+* CSV/PCAP exports for BLE and Wi‑Fi counters
+* On‑device RF waterfall view on OLED (tiny)
+* Honeypot modules: mDNS responder, simple MQTT trap, UPnP/SSDP bait
+* Optional multi‑button UI
 
 ---
 
-## 📚 FAQ
+## Legal
 
-**Is this legal?** Use it on your own gear or in a lab you control. Learn the rules where you live.
+This project is for education and research. Follow local regulations for wireless testing. Do not intercept traffic without consent.
 
-**Does ARP detection work on WPA2/WPA3?** Only if the traffic is visible. On encrypted WLANs without association, ARP payloads are not readable.
+---
 
-**Why a panda?** Security tools can feel harsh. The panda keeps it friendly while you learn.
+## Credits
+
+* ESP32 Arduino core, NimBLE‑Arduino, ELECHOUSE CC1101 driver, Adafruit GFX/SSD1306, Async WebServer/AsyncTCP.
